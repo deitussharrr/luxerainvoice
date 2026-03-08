@@ -211,58 +211,32 @@ def import_from_web():
             if result.get('success'):
                 data = result['data']
                 
-                customer = data.get('customer', {})
                 entry_customer_name.delete(0, tk.END)
-                entry_customer_name.insert(0, customer.get('customer_name', ''))
+                entry_customer_name.insert(0, data.get('customer_name', ''))
                 entry_contact_person.delete(0, tk.END)
-                entry_contact_person.insert(0, customer.get('contact_person', ''))
+                entry_contact_person.insert(0, data.get('contact_person', ''))
                 entry_email.delete(0, tk.END)
-                entry_email.insert(0, customer.get('email', ''))
+                entry_email.insert(0, data.get('email', ''))
                 entry_phone.delete(0, tk.END)
-                entry_phone.insert(0, customer.get('phone', ''))
+                entry_phone.insert(0, data.get('phone', ''))
                 entry_address.delete("1.0", tk.END)
-                entry_address.insert("1.0", customer.get('address', ''))
+                entry_address.insert("1.0", data.get('address', ''))
                 entry_city.delete(0, tk.END)
-                entry_city.insert(0, customer.get('city', ''))
+                entry_city.insert(0, data.get('city', ''))
                 entry_state.delete(0, tk.END)
-                entry_state.insert(0, customer.get('state', ''))
+                entry_state.insert(0, data.get('state', ''))
                 entry_country.delete(0, tk.END)
-                entry_country.insert(0, customer.get('country', ''))
+                entry_country.insert(0, data.get('country', ''))
                 entry_postal_code.delete(0, tk.END)
-                entry_postal_code.insert(0, customer.get('postal_code', ''))
+                entry_postal_code.insert(0, data.get('postal_code', ''))
                 
-                payment = data.get('payment', {})
-                entry_tax.delete(0, tk.END)
-                entry_tax.insert(0, str(payment.get('tax_percent', 0)))
-                
-                for term in combo_payment_terms['values']:
-                    if term == payment.get('payment_terms', 'Net 7'):
-                        combo_payment_terms.set(term)
-                        break
-                
-                for method in combo_payment_method['values']:
-                    if method == payment.get('payment_method', 'Bank Transfer'):
-                        combo_payment_method.set(method)
-                        break
-                
-                clear_all_services()
-                services = data.get('services', [])
-                for svc in services:
-                    add_service_row()
-                    if service_entries:
-                        frame, product_entry, desc_entry, qty_entry, price_entry = service_entries[-1]
-                        product_entry.insert(0, svc.get('product', ''))
-                        desc_entry.insert("1.0", svc.get('description', ''))
-                        qty_entry.delete(0, tk.END)
-                        qty_entry.insert(0, str(int(svc.get('quantity', 1))))
-                        price_entry.delete(0, tk.END)
-                        price_entry.insert(0, str(svc.get('unit_price', 0)))
-                
-                messagebox.showinfo("Success", "Invoice data imported from web!")
+                messagebox.showinfo("Success", "Customer data imported from web!")
             else:
-                messagebox.showinfo("No Data", "No new invoice data on web. Fill form on website first.")
+                messagebox.showinfo("No Data", "No new customer on web. Add customer on website first.")
         else:
             messagebox.showerror("Error", "Failed to connect to web app")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to import: {str(e)}")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to import: {str(e)}")
 
