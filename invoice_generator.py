@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import os
 import csv
+import requests
 from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -15,6 +16,8 @@ LOGO_FILE = "luxeralogo.png"
 COMPANY_NAME = "LUXERA DIGITAL"
 CURRENCY = "₹"
 PAYMENT_CLAUSE = "All payment must be made within 3 days of product submission."
+
+WEB_APP_URL = "https://luxerainvoice.vercel.app"
 
 
 def get_next_invoice_number():
@@ -198,6 +201,70 @@ def load_customer_from_csv():
     
     except Exception as e:
         messagebox.showerror("Error", f"Failed to load CSV: {str(e)}")
+
+
+def import_from_web():
+    try:
+        response = requests.get(f"{WEB_APP_URL}/api/latest", timeout=10)
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                data = result['data']
+                
+                customer = data.get('customer', {})
+                entry_customer_name.delete(0, tk.END)
+                entry_customer_name.insert(0, customer.get('customer_name', ''))
+                entry_contact_person.delete(0, tk.END)
+                entry_contact_person.insert(0, customer.get('contact_person', ''))
+                entry_email.delete(0, tk.END)
+                entry_email.insert(0, customer.get('email', ''))
+                entry_phone.delete(0, tk.END)
+                entry_phone.insert(0, customer.get('phone', ''))
+                entry_address.delete("1.0", tk.END)
+                entry_address.insert("1.0", customer.get('address', ''))
+                entry_city.delete(0, tk.END)
+                entry_city.insert(0, customer.get('city', ''))
+                entry_state.delete(0, tk.END)
+                entry_state.insert(0, customer.get('state', ''))
+                entry_country.delete(0, tk.END)
+                entry_country.insert(0, customer.get('country', ''))
+                entry_postal_code.delete(0, tk.END)
+                entry_postal_code.insert(0, customer.get('postal_code', ''))
+                
+                payment = data.get('payment', {})
+                entry_tax.delete(0, tk.END)
+                entry_tax.insert(0, str(payment.get('tax_percent', 0)))
+                
+                for term in combo_payment_terms['values']:
+                    if term == payment.get('payment_terms', 'Net 7'):
+                        combo_payment_terms.set(term)
+                        break
+                
+                for method in combo_payment_method['values']:
+                    if method == payment.get('payment_method', 'Bank Transfer'):
+                        combo_payment_method.set(method)
+                        break
+                
+                clear_all_services()
+                services = data.get('services', [])
+                for svc in services:
+                    add_service_row()
+                    if service_entries:
+                        frame, product_entry, desc_entry, qty_entry, price_entry = service_entries[-1]
+                        product_entry.insert(0, svc.get('product', ''))
+                        desc_entry.insert("1.0", svc.get('description', ''))
+                        qty_entry.delete(0, tk.END)
+                        qty_entry.insert(0, str(int(svc.get('quantity', 1))))
+                        price_entry.delete(0, tk.END)
+                        price_entry.insert(0, str(svc.get('unit_price', 0)))
+                
+                messagebox.showinfo("Success", "Invoice data imported from web!")
+            else:
+                messagebox.showinfo("No Data", "No new invoice data on web. Fill form on website first.")
+        else:
+            messagebox.showerror("Error", "Failed to connect to web app")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to import: {str(e)}")
 
 
 def create_pdf(invoice_num_str, customer, services, tax_percent, payment_terms, payment_due_date, payment_method):
@@ -476,8 +543,16 @@ canvas.configure(yscrollcommand=scrollbar.set)
 
 ttk.Label(scrollable_frame, text="Luxera Invoice Generator", font=("Arial", 16, "bold")).pack(pady=(0, 15))
 
-btn_load_csv = ttk.Button(scrollable_frame, text="Load Customer from CSV", command=load_customer_from_csv)
-btn_load_csv.pack(pady=(0, 15))
+btn_frame = ttk.Frame(scrollable_frame)
+btn_frame.pack(pady=(0, 15))
+
+btn_load_csv = ttk.Button(btn_frame, text="Load CSV", command=load_customer_from_csv)
+btn_load_csv.pack(side=tk.LEFT, padx=5)
+
+btn_import_web = ttk.Button(btn_frame, text="Import from Web", command=import_from_web)
+btn_import_web.pack(side=tk.LEFT, padx=5)
+
+ttk.Label(btn_frame, text="(Fill form on website, then click Import from Web)", font=("Arial", 8), foreground="gray").pack(side=tk.LEFT, padx=(15, 0))
 
 customer_frame = ttk.LabelFrame(scrollable_frame, text="Customer Details", padding=10)
 customer_frame.pack(fill=tk.X, pady=(0, 15))
