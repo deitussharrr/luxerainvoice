@@ -203,6 +203,57 @@ def load_customer_from_csv():
         messagebox.showerror("Error", f"Failed to load CSV: {str(e)}")
 
 
+def load_customer_list():
+    try:
+        response = requests.get(f"{WEB_APP_URL}/api/list", timeout=10)
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                return result.get('customers', [])
+    except:
+        pass
+    return []
+
+
+def refresh_customer_dropdown():
+    customers = load_customer_list()
+    combo_customer_select['values'] = [''] + [f"{c['id']} - {c['name']}" for c in customers]
+
+
+def on_customer_select(event):
+    selection = combo_customer_select.get()
+    if not selection:
+        return
+    
+    customer_id = selection.split(' - ')[0]
+    try:
+        response = requests.get(f"{WEB_APP_URL}/api/customer/{customer_id}", timeout=10)
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                data = result['data']
+                entry_customer_name.delete(0, tk.END)
+                entry_customer_name.insert(0, data.get('customer_name', ''))
+                entry_contact_person.delete(0, tk.END)
+                entry_contact_person.insert(0, data.get('contact_person', ''))
+                entry_email.delete(0, tk.END)
+                entry_email.insert(0, data.get('email', ''))
+                entry_phone.delete(0, tk.END)
+                entry_phone.insert(0, data.get('phone', ''))
+                entry_address.delete("1.0", tk.END)
+                entry_address.insert("1.0", data.get('address', ''))
+                entry_city.delete(0, tk.END)
+                entry_city.insert(0, data.get('city', ''))
+                entry_state.delete(0, tk.END)
+                entry_state.insert(0, data.get('state', ''))
+                entry_country.delete(0, tk.END)
+                entry_country.insert(0, data.get('country', ''))
+                entry_postal_code.delete(0, tk.END)
+                entry_postal_code.insert(0, data.get('postal_code', ''))
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to load customer: {str(e)}")
+
+
 def import_from_web():
     try:
         response = requests.get(f"{WEB_APP_URL}/api/latest", timeout=10)
@@ -235,8 +286,6 @@ def import_from_web():
                 messagebox.showinfo("No Data", "No new customer on web. Add customer on website first.")
         else:
             messagebox.showerror("Error", "Failed to connect to web app")
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to import: {str(e)}")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to import: {str(e)}")
 
@@ -527,6 +576,19 @@ btn_import_web = ttk.Button(btn_frame, text="Import from Web", command=import_fr
 btn_import_web.pack(side=tk.LEFT, padx=5)
 
 ttk.Label(btn_frame, text="(Fill form on website, then click Import from Web)", font=("Arial", 8), foreground="gray").pack(side=tk.LEFT, padx=(15, 0))
+
+select_frame = ttk.Frame(scrollable_frame)
+select_frame.pack(pady=(0, 10))
+
+ttk.Label(select_frame, text="Select Customer:").pack(side=tk.LEFT, padx=5)
+combo_customer_select = ttk.Combobox(select_frame, width=35, state='readonly')
+combo_customer_select.pack(side=tk.LEFT, padx=5)
+combo_customer_select.bind('<<ComboboxSelected>>', on_customer_select)
+
+btn_refresh = ttk.Button(select_frame, text="Refresh List", command=refresh_customer_dropdown)
+btn_refresh.pack(side=tk.LEFT, padx=5)
+
+refresh_customer_dropdown()
 
 customer_frame = ttk.LabelFrame(scrollable_frame, text="Customer Details", padding=10)
 customer_frame.pack(fill=tk.X, pady=(0, 15))

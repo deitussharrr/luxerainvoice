@@ -1,10 +1,33 @@
 from flask import Flask, request, render_template_string, jsonify
 import requests
 import uuid
+import json
+import os
 
 app = Flask(__name__)
 
+CUSTOMERS_FILE = "customers.json"
+
 customer_queue = {}
+customer_list = {}
+
+
+def load_customers():
+    if os.path.exists(CUSTOMERS_FILE):
+        try:
+            with open(CUSTOMERS_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+
+def save_customers(customers):
+    with open(CUSTOMERS_FILE, 'w') as f:
+        json.dump(customers, f)
+
+
+customer_list = load_customers()
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -124,8 +147,23 @@ def submit():
     
     customer_id = str(uuid.uuid4())[:8]
     customer_queue[customer_id] = customer
+    customer_list[customer_id] = customer
+    save_customers(customer_list)
     
     return render_template_string(HTML_TEMPLATE, customer={}, error=None, success=True)
+
+
+@app.route('/api/list')
+def list_customers():
+    customers = [{'id': k, 'name': v.get('customer_name', 'Unknown')} for k, v in customer_list.items()]
+    return jsonify({'success': True, 'customers': customers})
+
+
+@app.route('/api/customer/<customer_id>')
+def get_customer(customer_id):
+    if customer_id in customer_list:
+        return jsonify({'success': True, 'data': customer_list[customer_id]})
+    return jsonify({'success': False})
 
 
 @app.route('/api/latest')
