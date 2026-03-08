@@ -1,30 +1,62 @@
 from flask import Flask, request, render_template_string, jsonify
-import requests
 import uuid
-import json
 import os
+import json
 
 app = Flask(__name__)
 
-CUSTOMERS_FILE = "customers.json"
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    
+    cred = None
+    
+    # Try environment variable first (for Vercel)
+    if os.environ.get('FIREBASE_CREDENTIALS'):
+        cred = credentials.Certificate(json.loads(os.environ.get('FIREBASE_CREDENTIALS', '{}')))
+    else:
+        # Try local file (for local development)
+        SERVICE_KEY_PATH = os.path.join(os.path.dirname(__file__), "..", "servicekey.json")
+        if not os.path.exists(SERVICE_KEY_PATH):
+            SERVICE_KEY_PATH = os.path.join(os.path.dirname(__file__), "servicekey.json")
+        if os.path.exists(SERVICE_KEY_PATH):
+            cred = credentials.Certificate(SERVICE_KEY_PATH)
+    
+    if cred and not firebase_admin._apps:
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        USE_FIREBASE = True
+    else:
+        db = None
+        USE_FIREBASE = False
+except Exception as e:
+    print(f"Firebase init failed: {e}")
+    USE_FIREBASE = False
+    db = None
 
 customer_queue = {}
-customer_list = {}
 
 
 def load_customers():
-    if os.path.exists(CUSTOMERS_FILE):
-        try:
-            with open(CUSTOMERS_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
+    if not USE_FIREBASE:
+        return {}
+    try:
+        customers = {}
+        docs = db.collection('customers').stream()
+        for doc in docs:
+            customers[doc.id] = doc.to_dict()
+        return customers
+    except:
+        return {}
 
 
-def save_customers(customers):
-    with open(CUSTOMERS_FILE, 'w') as f:
-        json.dump(customers, f)
+def save_customer(customer_id, customer):
+    if not USE_FIREBASE:
+        return
+    try:
+        db.collection('customers').document(customer_id).set(customer)
+    except:
+        pass
 
 
 customer_list = load_customers()
@@ -148,19 +180,23 @@ def submit():
     customer_id = str(uuid.uuid4())[:8]
     customer_queue[customer_id] = customer
     customer_list[customer_id] = customer
-    save_customers(customer_list)
+    save_customer(customer_id, customer)
     
     return render_template_string(HTML_TEMPLATE, customer={}, error=None, success=True)
 
 
 @app.route('/api/list')
 def list_customers():
+    global customer_list
+    customer_list = load_customers()
     customers = [{'id': k, 'name': v.get('customer_name', 'Unknown')} for k, v in customer_list.items()]
     return jsonify({'success': True, 'customers': customers})
 
 
 @app.route('/api/customer/<customer_id>')
 def get_customer(customer_id):
+    global customer_list
+    customer_list = load_customers()
     if customer_id in customer_list:
         return jsonify({'success': True, 'data': customer_list[customer_id]})
     return jsonify({'success': False})
@@ -176,4 +212,4 @@ def get_latest():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
